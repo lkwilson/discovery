@@ -48,6 +48,7 @@ def main():
     listener = setup_multicast_listener(multicast_group, multicast_port, wait_interval)
     sender = setup_multicast_sender(multicast_ttl)
     friends = set()
+    enemy = set()
     while is_running():
       try:
         data, (peer_ip, peer_port) = listener.recvfrom(buffer_size)
@@ -63,7 +64,9 @@ def main():
         friends.add(peer_ip)
       elif data == query_msg:
         sender.sendto(response_msg, (multicast_group, multicast_port))
-      else:
+      elif peer_ip not in enemy:
+        print("Found enemy!", peer_ip)
+        enemy.add(peer_ip)
         sender.sendto(error_msg, (multicast_group, multicast_port))
 
   def start_cartographer():
