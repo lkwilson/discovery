@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+'''
+DEPRECATED
+
+this runs the listener in its own thread. I though recvfrom needed to be called
+and blocking in order to receive messages, but they seem to arrive as long as
+the socket exists. that makes the multithreading pointless.
+'''
+
 import threading
 import time
 import socket
