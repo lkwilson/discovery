@@ -3,6 +3,12 @@
 import socket
 import struct
 
+'''
+This is intended to be a lightweight and portable script that mostly just sleeps
+/ blocks until it receives a multicast packet. At that point, it'll respond with
+its hostname.
+'''
+
 name = socket.gethostname()
 response_msg = name.encode('utf-8')
 query_msg = b"Anybody out there?"

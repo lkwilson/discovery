@@ -3,6 +3,10 @@
 import socket
 import struct
 
+'''
+a framework for sending probes and collecting response information.
+'''
+
 query_msg = b"Anybody out there?"
 
 query_interval = 0.5
@@ -23,7 +27,7 @@ mreq = struct.pack("4sl", socket.inet_aton(multicast_group), socket.INADDR_ANY)
 reader.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 reader.settimeout(query_interval)
 
-def handle_responses(peers: set):
+def handle_responses(peers: set, handle_peer_found):
   while True:
     try:
       data, (peer_ip, peer_port) = reader.recvfrom(buffer_size)
@@ -36,14 +40,20 @@ def handle_responses(peers: set):
     key = (hostname, peer_ip)
     if key in peers:
       continue
-    print('peer:', hostname, peer_ip)
     peers.add(key)
 
-def main():
+    handle_peer_found(*key)
+
+def search_for_peers(num_probes: int, handle_peer_found):
   peers = set()
-  while True:
+  for _ in range(num_probes):
     writer.sendto(query_msg, (multicast_group, multicast_port))
-    handle_responses(peers)
+    handle_responses(peers, handle_peer_found)
+
+def main():
+  def handle_peer_found(hostname, peer_ip):
+    print('peer:', hostname, peer_ip)
+  search_for_peers(5, handle_peer_found)
 
 try:
   main()
