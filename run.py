@@ -2,8 +2,9 @@ import socket
 import time
 import struct
 import threading
+import sys
 
-def multi_listener(running_cb, multicast_group: str, multicast_port: int, length: int):
+def multi_listener(running_cb, multicast_group: str, multicast_port: int, msg: bytes, length: int):
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_IP)
   sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
   sock.bind((multicast_group, multicast_port))
@@ -17,6 +18,8 @@ def multi_listener(running_cb, multicast_group: str, multicast_port: int, length
   while running_cb():
     try:
       data = sock.recv(length)
+      if data == msg:
+        continue
     except socket.timeout:
       continue
     print('data:', data.decode('utf-8'))
@@ -32,15 +35,16 @@ def main():
   multicast_group = '224.1.1.1'
   multicast_port = 5007
   multicast_ttl = 1
-  msg = b'robot'
   running = True
   sleep = 1
+  length = 508
+  msg = sys.argv[1].encode('utf-8')[:length]
 
   def running_cb():
     return running
 
   send_thread = threading.Thread(target=multi_sender, args=(running_cb, multicast_group, multicast_port, multicast_ttl, msg, sleep))
-  listen_thread = threading.Thread(target=multi_listener, args=(running_cb, multicast_group, multicast_port, len(msg)))
+  listen_thread = threading.Thread(target=multi_listener, args=(running_cb, multicast_group, multicast_port, msg, length))
 
   try:
     send_thread.start()
