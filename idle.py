@@ -23,10 +23,13 @@ reader.bind((multicast_group, multicast_port))
 mreq = struct.pack("4sl", socket.inet_aton(multicast_group), socket.INADDR_ANY)
 reader.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
-try:
+def idle():
   while True:
-    data = reader.recvfrom(buffer_size)
+    data = reader.recv(buffer_size)
     if data == query_msg:
       writer.sendto(response_msg, (multicast_group, multicast_port))
+
+try:
+  idle()
 except KeyboardInterrupt:
   pass
