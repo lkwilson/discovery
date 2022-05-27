@@ -5,15 +5,15 @@ import struct
 import sys
 import threading
 import time
-from typing import Optional
+from typing import Callable, Optional
 
 
-def setup_multicast_sender(multicast_ttl: int):
+def setup_multicast_sender(multicast_ttl: int = 1):
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_IP)
   sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, multicast_ttl)
   return sock
 
-def setup_multicast_listener(multicast_group: str, multicast_port: int, timeout: Optional[float]):
+def setup_multicast_listener(multicast_group: str = '224.1.1.1', multicast_port: int = 5007, timeout: Optional[float] = 5):
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_IP)
   sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
   sock.bind((multicast_group, multicast_port))
@@ -23,12 +23,21 @@ def setup_multicast_listener(multicast_group: str, multicast_port: int, timeout:
     sock.settimeout(timeout)
   return sock
 
+def read(sock: socket.socket, is_running: Callable = None, buffer_size: int = 508):
+  if is_running is None:
+    def is_running():
+      return True
+  while is_running():
+    try:
+      return sock.recvfrom(buffer_size)
+    except socket.timeout:
+      continue
+
+def write(sock: socket.socket, data: bytes, multicast_group: str = '224.1.1.1', multicast_port: int = 5007):
+  sock.sendto(data, (multicast_group, multicast_port))
+
 
 def main():
-  multicast_group = '224.1.1.1'
-  multicast_port = 5007
-  multicast_ttl = 1
-  wait_interval = 5
   query_interval = 0.5
   buffer_size = 508  # avoid fragmentation
   # buffer_size = 65_507  # don't care about fragmentation
@@ -45,16 +54,12 @@ def main():
     return running
 
   def start_lighthouse():
-    listener = setup_multicast_listener(multicast_group, multicast_port, wait_interval)
-    sender = setup_multicast_sender(multicast_ttl)
+    listener = setup_multicast_listener()
+    sender = setup_multicast_sender()
     friends = set()
     enemy = set()
     while is_running():
-      try:
-        data, (peer_ip, peer_port) = listener.recvfrom(buffer_size)
-      except socket.timeout:
-        # allow reraise of interrupt
-        continue
+      data, (peer_ip, peer_port) = read(listener, is_running=is_running)
       if data == error_msg:
         pass
       elif data == response_msg:
@@ -63,16 +68,16 @@ def main():
         print('Found peer:', peer_ip)
         friends.add(peer_ip)
       elif data == query_msg:
-        sender.sendto(response_msg, (multicast_group, multicast_port))
+        write(sender, response_msg)
       elif peer_ip not in enemy:
         print("Found enemy!", peer_ip)
         enemy.add(peer_ip)
-        sender.sendto(error_msg, (multicast_group, multicast_port))
+        write(sender, error_msg)
 
   def start_cartographer():
-    sender = setup_multicast_sender(multicast_ttl)
+    sender = setup_multicast_sender()
     while is_running():
-      sender.sendto(query_msg, (multicast_group, multicast_port))
+      write(sender, query_msg)
       time.sleep(query_interval)
 
   if len(sys.argv) < 2:
