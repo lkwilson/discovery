@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-import threading
-import time
 import socket
 import struct
 
@@ -23,11 +21,15 @@ reader.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 reader.bind((multicast_group, multicast_port))
 mreq = struct.pack("4sl", socket.inet_aton(multicast_group), socket.INADDR_ANY)
 reader.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+reader.settimeout(query_interval)
 
-def handle_peer_msgs():
-  peers = set()
+def handle_responses(peers: set):
   while True:
-    data, (peer_ip, peer_port) = reader.recvfrom(buffer_size)
+    try:
+      data, (peer_ip, peer_port) = reader.recvfrom(buffer_size)
+    except socket.timeout:
+      return
+
     if data == query_msg:
       continue
     hostname = data.decode('utf-8')
@@ -37,21 +39,11 @@ def handle_peer_msgs():
     print('peer:', hostname, peer_ip)
     peers.add(key)
 
-def send_query_msgs():
+def main():
+  peers = set()
   while True:
     writer.sendto(query_msg, (multicast_group, multicast_port))
-    time.sleep(query_interval)
-
-def main():
-  read_thread = threading.Thread(target=handle_peer_msgs)
-  read_thread.start()
-
-  write_thread = threading.Thread(target=send_query_msgs)
-  write_thread.start()
-
-  read_thread.join()
-  print('hi')
-  write_thread.join()
+    handle_responses(peers)
 
 try:
   main()

@@ -50,7 +50,6 @@ def main():
   write_thread.start()
 
   read_thread.join()
-  print('hi')
   write_thread.join()
 
 try:
