@@ -37,13 +37,12 @@ def main():
   multicast_group = '224.1.1.1'
   multicast_port = 5007
   multicast_ttl = 1
-  running = True
   sleep = 2
   length = 508
   msg = sys.argv[1].encode('utf-8')[:length]
 
-  def running_cb():
-    return running
+  running = True
+  running_cb = lambda: running
 
   send_thread = threading.Thread(target=multi_sender, args=(running_cb, multicast_group, multicast_port, multicast_ttl, msg, sleep))
   listen_thread = threading.Thread(target=multi_listener, args=(running_cb, multicast_group, multicast_port, msg, sleep, length))
